@@ -1,0 +1,63 @@
+import Foundation
+
+class DataManager {
+    static let shared = DataManager()
+    private let userDataKey = "UserData"
+
+    func getOrCreateUserData() -> UserData {
+        if let savedData = loadUserData() {
+            return savedData
+        } else {
+            let newUserData = UserData(
+                userID: UUID().uuidString,
+                parentID: "",
+                weeklyBudget: 10000,
+                expenses: "",
+                expenseHistory: [],
+                savingsGoal: 50000,
+                savingsDeadline: "2025-12-31",
+                currentSavings: 0,
+                chatHistory: ""
+            )
+            saveUserData(newUserData)
+            return newUserData
+        }
+    }
+
+    func saveUserData(_ userData: UserData) {
+        do {
+            let data = try JSONEncoder().encode(userData)
+            UserDefaults.standard.set(data, forKey: userDataKey)
+        } catch {
+            print("Ошибка при сохранении данных: \(error)")
+        }
+    }
+
+    func loadUserData() -> UserData? {
+        if let data = UserDefaults.standard.data(forKey: userDataKey) {
+            do {
+                let userData = try JSONDecoder().decode(UserData.self, from: data)
+                return userData
+            } catch {
+                print("Ошибка при загрузке данных: \(error)")
+                return nil
+            }
+        }
+        return nil
+    }
+
+    func updateExpenses(_ expenses: String) {
+        let userData = getOrCreateUserData()
+        userData.expenses = expenses
+        if !expenses.isEmpty {
+            let newEntry = UserData.ExpenseEntry(
+                id: UUID(),
+                amount: Int(expenses.components(separatedBy: " ").first ?? "0") ?? 0,
+                description: expenses,
+                date: Date()
+            )
+            userData.expenseHistory.append(newEntry)
+        }
+        saveUserData(userData)
+    }
+}
