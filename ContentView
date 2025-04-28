@@ -1,0 +1,167 @@
+import SwiftUI
+
+struct ContentView: View {
+    @StateObject private var userData: UserData = DataManager.shared.getOrCreateUserData()
+    @State private var inputText: String = ""
+    @State private var expensesText: String = ""
+    @State private var responseText: String = "Ответ от ИИ появится здесь"
+    @State private var isLoading: Bool = false
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 20) {
+                Text("ИИ Помощник")
+                    .font(.custom("Avenir-Heavy", size: 34))
+                    .foregroundColor(.indigo)
+
+                TextField("Напиши вопрос", text: $inputText)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .padding(.horizontal)
+
+                TextField("Мои расходы", text: $expensesText)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .padding(.horizontal)
+
+                Button(action: {
+                    userData.expenses = expensesText
+                    if !expensesText.isEmpty {
+                        let newEntry = UserData.ExpenseEntry(
+                            id: UUID(),
+                            amount: Int(expensesText.components(separatedBy: " ").first ?? "0") ?? 0,
+                            description: expensesText,
+                            date: Date()
+                        )
+                        userData.expenseHistory.append(newEntry)
+                    }
+                    DataManager.shared.saveUserData(userData)
+                    print("Расходы сохранены: \(expensesText)")
+                }) {
+                    HStack {
+                        Image(systemName: "square.and.arrow.down")
+                        Text("Сохранить расходы")
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.indigo)
+                    .foregroundColor(.white)
+                    .cornerRadius(10)
+                    .padding(.horizontal)
+                }
+                .transition(.scale)
+
+                Button(action: {
+                    guard !inputText.isEmpty else {
+                        responseText = "Пожалуйста, введите вопрос."
+                        return
+                    }
+                    let fullPrompt = """
+                    У меня есть \(userData.weeklyBudget) тг на неделю.
+                    Мои расходы: \(userData.expenses).
+                    \(inputText)
+                    """
+                    print("Отправляем запрос: \(fullPrompt)")
+                    isLoading = true
+                    OpenAIService.shared.getAdvice(prompt: fullPrompt) { response in
+                        print("Получен ответ: \(response)")
+                        responseText = response
+                        userData.chatHistory += "\nВопрос: \(inputText)\n[AI]: \(response)"
+                        DataManager.shared.saveUserData(userData)
+                        isLoading = false
+                    }
+                }) {
+                    HStack {
+                        Image(systemName: "brain")
+                        Text("Спросить ИИ")
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.green.opacity(0.8))
+                    .foregroundColor(.white)
+                    .cornerRadius(10)
+                    .padding(.horizontal)
+                }
+                .transition(.scale)
+                .disabled(isLoading)
+
+                if isLoading {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle())
+                        .padding()
+                }
+
+                Text(responseText)
+                    .padding()
+                    .background(Color.gray.opacity(0.1))
+                    .cornerRadius(10)
+                    .padding(.horizontal)
+
+                NavigationLink(destination: SavingsView(userData: userData)) {
+                    HStack {
+                        Image(systemName: "piggy.bank")
+                        Text("Перейти в Копилку")
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.orange.opacity(0.8))
+                    .foregroundColor(.white)
+                    .cornerRadius(10)
+                    .padding(.horizontal)
+                }
+                .transition(.slide)
+
+                NavigationLink(destination: ParentView(userData: userData)) {
+                    HStack {
+                        Image(systemName: "person.2")
+                        Text("Родительский доступ")
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.purple.opacity(0.8))
+                    .foregroundColor(.white)
+                    .cornerRadius(10)
+                    .padding(.horizontal)
+                }
+                .transition(.slide)
+
+                NavigationLink(destination: AIChatView(userData: userData)) {
+                    HStack {
+                        Image(systemName: "clock.arrow.circlepath")
+                        Text("История чата")
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.teal.opacity(0.8))
+                    .foregroundColor(.white)
+                    .cornerRadius(10)
+                    .padding(.horizontal)
+                }
+                .transition(.slide)
+
+                NavigationLink(destination: SettingsView(userData: userData)) {
+                    HStack {
+                        Image(systemName: "gear")
+                        Text("Настройки")
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.gray.opacity(0.8))
+                    .foregroundColor(.white)
+                    .cornerRadius(10)
+                    .padding(.horizontal)
+                }
+                .transition(.slide)
+
+                Spacer()
+            }
+            .padding(.top)
+            .navigationTitle("Finnley")
+            .navigationBarTitleDisplayMode(.inline)
+        }
+    }
+}
+
+struct ContentView_Previews: PreviewProvider {
+    static var previews: some View {
+        ContentView()
+    }
+}
