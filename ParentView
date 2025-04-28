@@ -1,72 +1,209 @@
 import SwiftUI
+import Charts
 
 struct ParentView: View {
-    @State private var password: String = "" // Ввод пароля
-    @State private var isAuthenticated: Bool = false // Флаг авторизации
-    @State private var userData: UserData // Данные ребёнка
+    @ObservedObject var userData: UserData
+    @State private var selectedPeriod: Period = .day // Выбор периода для графика
 
-    // Простой пароль для доступа (в реальном приложении это должно быть безопаснее)
-    private let correctPassword = "parent123"
+    enum Period: String, CaseIterable, Identifiable {
+        case day = "День"
+        case week = "Неделя"
+        case month = "Месяц"
+        var id: String { self.rawValue }
+    }
 
-    init(userData: UserData) {
-        self._userData = State(initialValue: userData)
+    // Фильтрация трат по выбранному периоду
+    private var filteredExpenses: [UserData.ExpenseEntry] {
+        let calendar = Calendar.current
+        let now = Date()
+        return userData.expenseHistory.filter { entry in
+            switch selectedPeriod {
+            case .day:
+                return calendar.isDate(entry.date, inSameDayAs: now)
+            case .week:
+                return calendar.component(.weekOfYear, from: entry.date) == calendar.component(.weekOfYear, from: now) &&
+                       calendar.component(.year, from: entry.date) == calendar.component(.year, from: now)
+            case .month:
+                return calendar.component(.month, from: entry.date) == calendar.component(.month, from: now) &&
+                       calendar.component(.year, from: entry.date) == calendar.component(.year, from: now)
+            }
+        }
+    }
+
+    // Данные для графика расходов
+    private var chartData: [ChartEntry] {
+        var entries: [ChartEntry] = []
+        let calendar = Calendar.current
+        for expense in filteredExpenses {
+            let dateString: String
+            switch selectedPeriod {
+            case .day:
+                dateString = expense.date.formatted(.dateTime.hour().minute())
+            case .week:
+                dateString = expense.date.formatted(.dateTime.day().month())
+            case .month:
+                dateString = expense.date.formatted(.dateTime.day())
+            }
+            entries.append(ChartEntry(date: dateString, amount: expense.amount))
+        }
+        return entries
+    }
+
+    struct ChartEntry: Identifiable {
+        let id = UUID()
+        let date: String
+        let amount: Int
+    }
+
+    // Средний расход за период
+    private var averageExpense: Double {
+        guard !filteredExpenses.isEmpty else { return 0 }
+        let total = filteredExpenses.reduce(0) { $0 + $1.amount }
+        return Double(total) / Double(filteredExpenses.count)
+    }
+
+    // Соотношение накоплений и трат
+    private var savingsToExpensesRatio: Double {
+        let totalExpenses = userData.expenseHistory.reduce(0) { $0 + $1.amount }
+        let totalSavings = userData.currentSavings
+        let total = totalExpenses + totalSavings
+        guard total > 0 else { return 0 }
+        return Double(totalSavings) / Double(total) * 100
     }
 
     var body: some View {
-        VStack(spacing: 20) {
-            if isAuthenticated {
-                // Экран с данными ребёнка
-                Text("Родительский доступ")
+        ScrollView {
+            VStack(spacing: 20) {
+                Text("Просмотр активности ребёнка")
                     .font(.custom("Avenir-Heavy", size: 34))
                     .foregroundColor(.indigo)
 
-                // Отображаем данные ребёнка
-                Text("Бюджет на неделю: \(userData.weeklyBudget) тг")
-                    .font(.title2)
-                Text("Расходы: \(userData.expenses.isEmpty ? "Нет расходов" : userData.expenses)")
-                    .font(.title2)
-                Text("Цель накоплений: \(userData.savingsGoal) тг")
-                    .font(.title2)
-                Text("Накоплено: \(userData.currentSavings) тг")
-                    .font(.title2)
-                Text("Срок накоплений: \(userData.savingsDeadline)")
-                    .font(.title2)
-
-                Spacer()
-            } else {
-                // Экран ввода пароля
-                Text("Введите пароль")
-                    .font(.custom("Avenir-Heavy", size: 34))
-                    .foregroundColor(.indigo)
-
-                SecureField("Пароль", text: $password)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                    .padding(.horizontal)
-
-                Button(action: {
-                    if password == correctPassword {
-                        isAuthenticated = true
-                    } else {
-                        password = "" // Очищаем поле при неверном пароле
-                    }
-                }) {
-                    HStack {
-                        Image(systemName: "lock")
-                        Text("Войти")
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.indigo)
-                    .foregroundColor(.white)
-                    .cornerRadius(10)
-                    .padding(.horizontal)
+                // Текущий баланс
+                VStack(alignment: .leading) {
+                    Text("Текущий баланс")
+                        .font(.title2)
+                        .foregroundColor(.indigo)
+                    Text("\(userData.weeklyBudget - userData.expenseHistory.reduce(0) { $0 + $1.amount }) тг")
+                        .font(.title3)
+                        .foregroundColor(.black)
                 }
-                .transition(.scale)
+                .padding()
+                .background(Color.gray.opacity(0.1))
+                .cornerRadius(10)
+                .padding(.horizontal)
+
+                // Активные цели накоплений
+                VStack(alignment: .leading) {
+                    Text("Активные цели накоплений")
+                        .font(.title2)
+                        .foregroundColor(.indigo)
+                    Text("Цель: \(userData.savingsGoal) тг")
+                    Text("Накоплено: \(userData.currentSavings) тг")
+                    Text("Осталось: \(userData.savingsGoal - userData.currentSavings) тг")
+                    Text("Срок: \(userData.savingsDeadline)")
+                }
+                .padding()
+                .background(Color.gray.opacity(0.1))
+                .cornerRadius(10)
+                .padding(.horizontal)
+
+                // Последние траты
+                VStack(alignment: .leading) {
+                    Text("Последние траты")
+                        .font(.title2)
+                        .foregroundColor(.indigo)
+                    if userData.expenseHistory.isEmpty {
+                        Text("Нет трат")
+                            .foregroundColor(.gray)
+                    } else {
+                        ForEach(userData.expenseHistory.sorted(by: { $0.date > $1.date }).prefix(5)) { expense in
+                            HStack {
+                                Text("\(expense.date.formatted(.dateTime.day().month().year().hour().minute()))")
+                                    .foregroundColor(.gray)
+                                Spacer()
+                                Text("\(expense.amount) тг - \(expense.description)")
+                                    .foregroundColor(.black)
+                            }
+                            .padding(.vertical, 5)
+                        }
+                    }
+                }
+                .padding()
+                .background(Color.gray.opacity(0.1))
+                .cornerRadius(10)
+                .padding(.horizontal)
+
+                // График расходов
+                VStack(alignment: .leading) {
+                    Text("График расходов")
+                        .font(.title2)
+                        .foregroundColor(.indigo)
+
+                    Picker("Период", selection: $selectedPeriod) {
+                        ForEach(Period.allCases) { period in
+                            Text(period.rawValue).tag(period)
+                        }
+                    }
+                    .pickerStyle(SegmentedPickerStyle())
+                    .padding(.vertical, 5)
+
+                    if chartData.isEmpty {
+                        Text("Нет данных за выбранный период")
+                            .foregroundColor(.gray)
+                    } else {
+                        Chart {
+                            ForEach(chartData) { entry in
+                                LineMark(
+                                    x: .value("Дата", entry.date),
+                                    y: .value("Сумма", entry.amount)
+                                )
+                                .foregroundStyle(.red.opacity(0.8))
+                            }
+                        }
+                        .frame(height: 200)
+                        .padding(.vertical, 5)
+                    }
+                }
+                .padding()
+                .background(Color.gray.opacity(0.1))
+                .cornerRadius(10)
+                .padding(.horizontal)
+
+                // Средний расход за период
+                VStack(alignment: .leading) {
+                    Text("Средний расход за \(selectedPeriod.rawValue.lowercased())")
+                        .font(.title2)
+                        .foregroundColor(.indigo)
+                    Text("\(String(format: "%.2f", averageExpense)) тг")
+                        .font(.title3)
+                        .foregroundColor(.black)
+                }
+                .padding()
+                .background(Color.gray.opacity(0.1))
+                .cornerRadius(10)
+                .padding(.horizontal)
+
+                // Соотношение накоплений и трат
+                VStack(alignment: .leading) {
+                    Text("Соотношение накоплений и трат")
+                        .font(.title2)
+                        .foregroundColor(.indigo)
+                    Text("Накопления: \(String(format: "%.2f", savingsToExpensesRatio))%")
+                    Text("Траты: \(String(format: "%.2f", 100 - savingsToExpensesRatio))%")
+                    ProgressView(value: Float(savingsToExpensesRatio) / 100)
+                        .progressViewStyle(LinearProgressViewStyle())
+                        .tint(.green)
+                        .padding(.vertical, 5)
+                }
+                .padding()
+                .background(Color.gray.opacity(0.1))
+                .cornerRadius(10)
+                .padding(.horizontal)
 
                 Spacer()
             }
+            .padding(.top)
         }
-        .padding(.top)
         .navigationTitle("Родительский доступ")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -74,16 +211,21 @@ struct ParentView: View {
 
 struct ParentView_Previews: PreviewProvider {
     static var previews: some View {
-        ParentView(userData: UserData(
+        let userData = UserData(
             userID: "123",
             parentID: "",
             weeklyBudget: 10000,
-            expenses: "5000 тг на еду",
-            expenseHistory: [],
+            expenses: "",
+            expenseHistory: [
+                .init(id: UUID(), amount: 2000, description: "2000 тг на еду", date: Date().addingTimeInterval(-86400 * 2)),
+                .init(id: UUID(), amount: 1000, description: "1000 тг на игрушки", date: Date().addingTimeInterval(-86400)),
+                .init(id: UUID(), amount: 1500, description: "1500 тг на транспорт", date: Date())
+            ],
             savingsGoal: 50000,
             savingsDeadline: "2025-12-31",
             currentSavings: 20000,
             chatHistory: ""
-        ))
+        )
+        return ParentView(userData: userData)
     }
 }
