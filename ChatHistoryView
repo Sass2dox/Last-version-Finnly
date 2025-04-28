@@ -1,0 +1,70 @@
+import SwiftUI
+
+struct ChatHistoryView: View {
+    @ObservedObject var userData: UserData
+
+    private var chatLines: [String] {
+        userData.chatHistory.split(separator: "\n").map { String($0) }
+    }
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Text("История чата")
+                .font(.custom("Avenir-Heavy", size: 24))
+                .foregroundColor(.indigo)
+                .padding()
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 10) {
+                    if chatLines.isEmpty {
+                        Text("История чата пуста")
+                            .font(.title2)
+                            .foregroundColor(.gray)
+                    } else {
+                        ForEach(chatLines.indices, id: \.self) { index in
+                            if chatLines[index].hasPrefix("[AI]:") {
+                                HStack {
+                                    Text(chatLines[index].dropFirst(5))
+                                        .padding()
+                                        .background(Color.indigo.opacity(0.2))
+                                        .cornerRadius(10)
+                                        .foregroundColor(.black)
+                                }
+                            } else {
+                                HStack {
+                                    Text(chatLines[index])
+                                        .padding()
+                                        .background(Color.green.opacity(0.1))
+                                        .cornerRadius(10)
+                                        .foregroundColor(.black)
+                                }
+                            }
+                        }
+                    }
+                }
+                .padding(.horizontal)
+            }
+
+            Spacer()
+        }
+        .padding(.top)
+        .navigationTitle("История чата")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+struct ChatHistoryView_Previews: PreviewProvider {
+    static var previews: some View {
+        ChatHistoryView(userData: UserData(
+            userID: "123",
+            parentID: "",
+            weeklyBudget: 10000,
+            expenses: "",
+            expenseHistory: [],
+            savingsGoal: 50000,
+            savingsDeadline: "2025-12-31",
+            currentSavings: 20000,
+            chatHistory: "[AI]: Попробуй меньше тратить на еду.\nВопрос: Как сэкономить?"
+        ))
+    }
+}
