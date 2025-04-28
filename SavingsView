@@ -1,0 +1,128 @@
+import SwiftUI
+
+struct SavingsView: View {
+    @State private var newSavings: String = "" // Для ввода новых накоплений
+    @State private var userData: UserData // Данные пользователя
+    @State private var animatedProgress: Float = 0 // Для анимации прогресс-бара
+
+    // Инициализатор для передачи данных
+    init(userData: UserData) {
+        self._userData = State(initialValue: userData)
+        self._animatedProgress = State(initialValue: Float(userData.currentSavings) / Float(userData.savingsGoal))
+    }
+
+    // Вычисляем количество дней до savingsDeadline
+    private var daysRemaining: Int {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        guard let deadlineDate = dateFormatter.date(from: userData.savingsDeadline) else { return 0 }
+        
+        let currentDate = Date()
+        let calendar = Calendar.current
+        let components = calendar.dateComponents([.day], from: currentDate, to: deadlineDate)
+        return max(0, components.day ?? 0)
+    }
+
+    var body: some View {
+        VStack(spacing: 20) {
+            // Заголовок
+            Text("Копилка")
+                .font(.custom("Avenir-Heavy", size: 34))
+                .foregroundColor(.indigo)
+
+            // Прогресс накоплений
+            Text("Цель: \(userData.savingsGoal) тг")
+                .font(.title2)
+            Text("Накоплено: \(userData.currentSavings) тг")
+                .font(.title2)
+            Text("Осталось: \(max(0, userData.savingsGoal - userData.currentSavings)) тг")
+                .font(.title2)
+            Text("Дней до цели: \(daysRemaining)")
+                .font(.title2)
+                .foregroundColor(daysRemaining > 0 ? .black : .red)
+
+            // Прогресс-бар с анимацией
+            ProgressView(value: animatedProgress)
+                .progressViewStyle(LinearProgressViewStyle())
+                .padding(.horizontal)
+                .tint(.green)
+                .onAppear {
+                    withAnimation(.easeInOut(duration: 1.0)) {
+                        animatedProgress = Float(userData.currentSavings) / Float(userData.savingsGoal)
+                    }
+                }
+
+            // Поле для ввода новых накоплений
+            TextField("Добавить накопления (тг)", text: $newSavings)
+                .textFieldStyle(RoundedBorderTextFieldStyle())
+                .keyboardType(.numberPad) // Только цифры
+                .padding(.horizontal)
+
+            // Кнопка для добавления накоплений
+            Button(action: {
+                if let amount = Int(newSavings), amount > 0 {
+                    userData.currentSavings += amount
+                    DataManager.shared.saveUserData(userData)
+                    withAnimation(.easeInOut(duration: 1.0)) {
+                        animatedProgress = Float(userData.currentSavings) / Float(userData.savingsGoal)
+                    }
+                    newSavings = "" // Очищаем поле после добавления
+                }
+            }) {
+                HStack {
+                    Image(systemName: "plus.circle")
+                    Text("Добавить")
+                }
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Color.indigo)
+                .foregroundColor(.white)
+                .cornerRadius(10)
+                .padding(.horizontal)
+            }
+            .transition(.scale)
+
+            // Кнопка для сброса накоплений
+            Button(action: {
+                userData.currentSavings = 0
+                DataManager.shared.saveUserData(userData)
+                withAnimation(.easeInOut(duration: 1.0)) {
+                    animatedProgress = 0
+                }
+            }) {
+                HStack {
+                    Image(systemName: "arrow.clockwise")
+                    Text("Сбросить накопления")
+                }
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Color.red.opacity(0.8))
+                .foregroundColor(.white)
+                .cornerRadius(10)
+                .padding(.horizontal)
+            }
+            .transition(.scale)
+
+            Spacer()
+        }
+        .padding(.top)
+        .navigationTitle("Копилка")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+struct SavingsView_Previews: PreviewProvider {
+    static var previews: some View {
+        SavingsView(userData: UserData(
+            userID: "123",
+            parentID: "",
+            weeklyBudget: 10000,
+            expenses: "",
+            expenseHistory: [],
+            savingsGoal: 50000,
+            savingsDeadline: "2025-12-31",
+            currentSavings: 20000,
+            chatHistory: ""
+        ))
+    }
+}
