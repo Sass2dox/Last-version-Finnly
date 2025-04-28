@@ -1,0 +1,89 @@
+import SwiftUI
+
+struct ParentView: View {
+    @State private var password: String = "" // Ввод пароля
+    @State private var isAuthenticated: Bool = false // Флаг авторизации
+    @State private var userData: UserData // Данные ребёнка
+
+    // Простой пароль для доступа (в реальном приложении это должно быть безопаснее)
+    private let correctPassword = "parent123"
+
+    init(userData: UserData) {
+        self._userData = State(initialValue: userData)
+    }
+
+    var body: some View {
+        VStack(spacing: 20) {
+            if isAuthenticated {
+                // Экран с данными ребёнка
+                Text("Родительский доступ")
+                    .font(.custom("Avenir-Heavy", size: 34))
+                    .foregroundColor(.indigo)
+
+                // Отображаем данные ребёнка
+                Text("Бюджет на неделю: \(userData.weeklyBudget) тг")
+                    .font(.title2)
+                Text("Расходы: \(userData.expenses.isEmpty ? "Нет расходов" : userData.expenses)")
+                    .font(.title2)
+                Text("Цель накоплений: \(userData.savingsGoal) тг")
+                    .font(.title2)
+                Text("Накоплено: \(userData.currentSavings) тг")
+                    .font(.title2)
+                Text("Срок накоплений: \(userData.savingsDeadline)")
+                    .font(.title2)
+
+                Spacer()
+            } else {
+                // Экран ввода пароля
+                Text("Введите пароль")
+                    .font(.custom("Avenir-Heavy", size: 34))
+                    .foregroundColor(.indigo)
+
+                SecureField("Пароль", text: $password)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .padding(.horizontal)
+
+                Button(action: {
+                    if password == correctPassword {
+                        isAuthenticated = true
+                    } else {
+                        password = "" // Очищаем поле при неверном пароле
+                    }
+                }) {
+                    HStack {
+                        Image(systemName: "lock")
+                        Text("Войти")
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.indigo)
+                    .foregroundColor(.white)
+                    .cornerRadius(10)
+                    .padding(.horizontal)
+                }
+                .transition(.scale)
+
+                Spacer()
+            }
+        }
+        .padding(.top)
+        .navigationTitle("Родительский доступ")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+struct ParentView_Previews: PreviewProvider {
+    static var previews: some View {
+        ParentView(userData: UserData(
+            userID: "123",
+            parentID: "",
+            weeklyBudget: 10000,
+            expenses: "5000 тг на еду",
+            expenseHistory: [],
+            savingsGoal: 50000,
+            savingsDeadline: "2025-12-31",
+            currentSavings: 20000,
+            chatHistory: ""
+        ))
+    }
+}
