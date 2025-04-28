@@ -1,0 +1,13 @@
+import SwiftUI
+
+// Главная точка входа в приложение
+@main
+struct FinnleyApp: App {
+    var body: some Scene {
+        // WindowGroup — это контейнер, который управляет жизненным циклом окна (или сцен в многозадачности)
+        WindowGroup {
+            // Первое, что видит пользователь — главный экран с меню
+            ContentView()
+        }
+    }
+}
