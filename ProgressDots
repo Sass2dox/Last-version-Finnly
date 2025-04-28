@@ -1,0 +1,26 @@
+
+import SwiftUI
+
+struct ProgressDots: View {
+    @State private var phase = 0
+
+    let animation = Animation.easeInOut(duration: 0.4).repeatForever(autoreverses: true)
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(0..<3) { index in
+                Circle()
+                    .fill(Color.white.opacity(0.8))
+                    .frame(width: 6, height: 6)
+                    .scaleEffect(phase == index ? 1.4 : 1.0)
+                    .animation(animation.delay(Double(index) * 0.2), value: phase)
+            }
+        }
+        .onAppear {
+            Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { _ in
+                phase = (phase + 1) % 3
+            }
+        }
+    }
+}
+
