@@ -1,0 +1,83 @@
+import SwiftUI
+
+struct SettingsView: View {
+    @State private var userData: UserData // Данные пользователя
+    @State private var weeklyBudget: String // Для редактирования бюджета
+    @State private var savingsGoal: String // Для редактирования цели
+    @State private var savingsDeadline: String // Для редактирования срока
+
+    init(userData: UserData) {
+        self._userData = State(initialValue: userData)
+        self._weeklyBudget = State(initialValue: String(userData.weeklyBudget))
+        self._savingsGoal = State(initialValue: String(userData.savingsGoal))
+        self._savingsDeadline = State(initialValue: userData.savingsDeadline)
+    }
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Text("Настройки")
+                .font(.custom("Avenir-Heavy", size: 34))
+                .foregroundColor(.indigo)
+
+            // Поле для редактирования бюджета
+            TextField("Бюджет на неделю (тг)", text: $weeklyBudget)
+                .textFieldStyle(RoundedBorderTextFieldStyle())
+                .keyboardType(.numberPad)
+                .padding(.horizontal)
+
+            // Поле для редактирования цели накоплений
+            TextField("Цель накоплений (тг)", text: $savingsGoal)
+                .textFieldStyle(RoundedBorderTextFieldStyle())
+                .keyboardType(.numberPad)
+                .padding(.horizontal)
+
+            // Поле для редактирования срока накоплений
+            TextField("Срок накоплений (гггг-мм-дд)", text: $savingsDeadline)
+                .textFieldStyle(RoundedBorderTextFieldStyle())
+                .padding(.horizontal)
+
+            // Кнопка для сохранения изменений
+            Button(action: {
+                if let newBudget = Int(weeklyBudget), let newGoal = Int(savingsGoal) {
+                    userData.weeklyBudget = newBudget
+                    userData.savingsGoal = newGoal
+                    userData.savingsDeadline = savingsDeadline
+                    DataManager.shared.saveUserData(userData)
+                }
+            }) {
+                HStack {
+                    Image(systemName: "square.and.arrow.down")
+                    Text("Сохранить изменения")
+                }
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Color.indigo)
+                .foregroundColor(.white)
+                .cornerRadius(10)
+                .padding(.horizontal)
+            }
+            .transition(.scale)
+
+            Spacer()
+        }
+        .padding(.top)
+        .navigationTitle("Настройки")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+struct SettingsView_Previews: PreviewProvider {
+    static var previews: some View {
+        SettingsView(userData: UserData(
+            userID: "123",
+            parentID: "",
+            weeklyBudget: 10000,
+            expenses: "",
+            expenseHistory: [],
+            savingsGoal: 50000,
+            savingsDeadline: "2025-12-31",
+            currentSavings: 20000,
+            chatHistory: ""
+        ))
+    }
+}
